@@ -1,3 +1,6 @@
+drop table if exists purchaseDetails;
+drop table if exists orderPurchased;
+
 #Table 1;
 create table orderPurchased
 (
