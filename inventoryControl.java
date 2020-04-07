@@ -1,3 +1,4 @@
+//Interface with abstarct methods
 public interface inventoryControl {
     public void Ship_order( int orderNumber ) throws OrderException;
     public int Issue_reorders( int year, int month, int day );

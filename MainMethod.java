@@ -21,7 +21,7 @@ public class MainMethod {
         System.out.println("Day");
         Scanner scanner4 = new Scanner(System.in);
         String day = scanner4.next();
-        dailyTransactions.Issue_reorders(Integer.parseInt(year),Integer.parseInt(month),Integer.parseInt(day));
+        System.out.println(dailyTransactions.Issue_reorders(Integer.parseInt(year),Integer.parseInt(month),Integer.parseInt(day)));
 
         System.out.println("Enter new order ID for recieved order ");
         Scanner scanner5 = new Scanner(System.in);

@@ -1,3 +1,4 @@
+//Exception class requested during throws method
 public class OrderException extends Exception {
     int orderNumber;
     public OrderException(String message, int orderNumber) {

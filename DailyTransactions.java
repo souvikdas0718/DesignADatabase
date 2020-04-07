@@ -1,6 +1,9 @@
 import java.sql.*;
 import java.util.*;
 
+/*
+DailyTransactions class which implements inventoryControl interface
+ */
 public class DailyTransactions implements inventoryControl {
 
     @Override
@@ -18,20 +21,23 @@ public class DailyTransactions implements inventoryControl {
             dbName = identity_1.getProperty("database");
             statement.executeQuery("use " + dbName + ";");
 
+            //Query to update shipped date
             String query = "update orders set ShippedDate=now() where OrderID=" + orderNumber + " and ShippedDate is null;";
             statement.executeUpdate(query);
 
+            //query to fetch product table and order table columns
             String query2 = "select products.ProductID, orderdetails.Quantity, products.UnitsInStock " +
                     "from products join orderdetails where products.ProductID=orderdetails.ProductID and OrderID="+orderNumber+";";
             resultSet = statement.executeQuery(query2);
             boolean negativeFlag = true;
             while(resultSet.next()){
                 int unitInStock = resultSet.getInt("UnitsInStock");
-                int qty = resultSet.getInt("Quantity");
+                int qty = resultSet.getInt("Quantity");                     // checking flag if any of the order shows negative value for unitStock - qty then throw exception
                 if((unitInStock-qty)<0){
                     negativeFlag = false;
                 }
             }
+            // updating the unitInStock when for vaild orderID else throws exception
             if(negativeFlag) {
                 String query3 = "update products as pdt join orderdetails as ord set pdt.UnitsInStock = pdt.UnitsInStock - ord.Quantity " +
                         "where ord.ProductID = pdt.ProductID and ord.OrderID = " + orderNumber + ";";
@@ -68,19 +74,8 @@ public class DailyTransactions implements inventoryControl {
             statement.executeQuery("use " + dbName + ";");
 
             String date = year+"-"+month+"-"+day;
-            //System.out.printf(date);
 
-
-//            String query = "with new_order as (select orders.OrderID,orders.ShipVia " +
-//                    "from orders where OrderDate <='"+date+"' or ShippedDate <='"+date+"') " +
-//                    "select s.supplierID,p.ProductID,p.ReorderLevel from new_order\n" +
-//                    "join orderdetails on orderdetails.OrderID = new_order.OrderID " +
-//                    "join products p on orderdetails.ProductID = p.ProductID " +
-//                    "join suppliers s on p.SupplierID = s.SupplierID " +
-//                    "where p.UnitsInStock<p.ReorderLevel and p.ProductID not in " +
-//                    "(select ProductID from orderPurchased natural join purchaseDetails where arrivedDate is NULL) " +
-//                    "group by p.ProductID;";
-
+            //Query to select productID, supplierID, ReorderLevel from various tables
             String query = "select distinct p.ProductID,s.supplierID,p.ReorderLevel from orders new_order\n" +
                     "join orderdetails on orderdetails.OrderID = new_order.OrderID " +
                     "join products p on orderdetails.ProductID = p.ProductID " +
@@ -89,6 +84,7 @@ public class DailyTransactions implements inventoryControl {
 
             resultSet = statement.executeQuery(query);
 
+            //Storing the values in the various hashmaps
             HashMap<Integer, ArrayList<String>> suEntry = new HashMap<>();
             HashMap<Integer, ArrayList<String>> prIDEntry = new HashMap<>();
             HashMap<Integer, ArrayList<String>> usEntry = new HashMap<>();
@@ -115,6 +111,7 @@ public class DailyTransactions implements inventoryControl {
                 prEntry.get(supplierID).add(price);
             }
 
+            //Inserting values to orderPurchased table
             for (Integer sID: suEntry.keySet()) {
                 String query2 = "insert into orderPurchased (SupplierID, placedDate, ShipperID, trackingID) " +
                         "values ( " + sID + ", now(), " + suEntry.get(sID).get(0) + ", '" + RequiredString(20) + "');";
@@ -125,10 +122,12 @@ public class DailyTransactions implements inventoryControl {
                 String orderID = resultSet.getString("maxOrderID");
                 for(int i = 0; i<suEntry.get(sID).size();i++)
                 {
+                    //inserting into purchaseDetails
                     query2 = "insert into purchaseDetails (OrderID, ProductID, Units) " +
                             "values ( " + orderID+", "+ prIDEntry.get(sID).get(i)+ ", " + usEntry.get(sID).get(i) + ");";
                     statement.execute(query2);
 
+                    //Updating unitsonorder
                     query3 = "Update products set UnitsOnOrder=UnitsOnOrder+"+usEntry.get(sID).get(i)+" where ProductID="+prIDEntry.get(sID).get(i)+";";
                     statement.execute(query3);
                 }
@@ -139,7 +138,7 @@ public class DailyTransactions implements inventoryControl {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        //return 0;
+        //rreturning the number of suppliers
         return count_Orders;
     }
 
@@ -170,29 +169,25 @@ public class DailyTransactions implements inventoryControl {
             dbName = identity_1.getProperty("database");
             statement.executeQuery("use " + dbName + ";");
 
+            //Query to update the arrived date of orderPurchased details
             String query = "update orderPurchased set arrivedDate=now() where OrderID="+internal_order_reference+" and arrivedDate is null;;";
             statement.executeUpdate(query);
 
+            //query to update UnitsInStock
             String query2 = "update products as pdt join purchaseDetails pD set UnitsInStock = UnitsInStock + Units where " +
                             "pdt.ProductID=pD.ProductID and OrderID ="+internal_order_reference+";";
             statement.executeUpdate(query2);
 
+            //Query to update UnitsInOrder
             query2 = "update products as pdt join purchaseDetails pD set UnitsOnOrder = UnitsOnOrder - Units where " +
                     "pdt.ProductID=pD.ProductID and OrderID ="+internal_order_reference+";";
 
             statement.executeUpdate(query2);
-
+            //for each productID, updating the productCost and UnitPrice in products abd purchaseDetails tables
             resultSet = statement.executeQuery("select ProductID from purchaseDetails where OrderID="+internal_order_reference);
             while(resultSet.next()) {
-//                System.out.println("xyz");
                 String pID = resultSet.getString("ProductID");
-//                System.out.println(pID);
                 Statement statement1 = connection.createStatement();
-
-//                System.out.println("select p.UnitPrice " +
-//                        "from orderdetails,products p,orders " +
-//                        "where orderdetails.OrderID = orders.OrderID and p.ProductID=orderdetails.ProductID and p.ProductID=" + pID + " order by OrderID DESC LIMIT 1 ");
-
                 ResultSet rs = statement1.executeQuery("select p.UnitPrice " +
                         "from orderdetails,products p,orders " +
                         "where orderdetails.OrderID = orders.OrderID and p.ProductID=orderdetails.ProductID and p.ProductID=" + pID + " order by orders.OrderID DESC LIMIT 1 ");
@@ -214,7 +209,7 @@ public class DailyTransactions implements inventoryControl {
         } catch (SQLException e) {
         }
     }
-
+//Creating a method to for establishing connection during method call
     public static Connection connection() throws ClassNotFoundException {
         // Variables used for connections and queries
         Connection connect = null;      // the link to the database
